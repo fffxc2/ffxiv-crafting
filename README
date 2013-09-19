@@ -1,2 +1,7 @@
 designed to mirror crafting in the game Final Fantasy XIV: A Realm Reborn
 Useful for trying out different crafting logic
+
+Make a function similar to chainCraft, simpCraft and quickHQ that contains all crafting logic
+then pass it to avg to get an idea for how much quality you can gain
+
+Also, many crafting functions are non-existant, implement more as needed
