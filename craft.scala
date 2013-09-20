@@ -1,229 +1,167 @@
 object craft{
-	var iqStacks = 0
 	var crf = 300
-	var cnt = 327
-	var cp = 280 - 22 //iq on first step always
-	var cpmax = 280
-	var dura = 40
+	var cnt = 300
+	var cpmax = 300
 	var duramax = 40
-	var prog = 0
-	var qual = 0
-	var state = 1.0
-	var steadyCnt = 0
-	var manipCnt = 0
-	var gsCnt = 0
+	var a1 = 0
+	var a2 = 0
+	var a3 = 0
+	var a4 = 0
+	var myStatus = new status(cpmax, duramax)
+	var myTouch = new touch(cnt, myStatus)
+	var mySynth = new synth(crf, myStatus)
 	
 	def reset(){
-		iqStacks = 0
-		crf = 300
-		cnt = 327
-		cp = 280 - 22 //iq on first step always
-		cpmax = 280
-		duramax = 80
-		dura = duramax
-		prog = 0
-		qual = 0
-		state = 1.0
-		steadyCnt = 0
-		manipCnt = 0
-		gsCnt = 0
-		state = stateChange(state) //since we are assuming iq first always, advance to 2nd state
-	}
-	
-	def qualMap(cnt: Double): Int = { ((0.36*cnt+34.0)*state).toInt }
-	def progMap(crf: Double): Int = { (0.21*crf+1.6).toInt }
-	
-	def stateChange(state: Double): Double = state match{
-		case 1.5 => 1.0		//good
-		case 4.0 => 0.5		//excellent
-		case 0.5 => 1.0		//poor
-		case 1.0 =>	{ def rand(x: Double): Double = x match { case x if (x > 0.95) => 4.0
-															  case x if (x > 0.75) => 1.5
-															  case _ => 1.0 }
-					  rand(scala.util.Random.nextDouble())
-					}
-	}
-	
-	def stateName(state: Double): String = state match{
-		case 1.0 => "Normal"
-		case 1.5 => "Good"
-		case 4.0 => "Excel"
-		case 0.5 => "Poor"
-	}
-	
-	def hastyTouch(){
-		var x = scala.util.Random.nextDouble()
-		if(steadyCnt > 0) x = x + 0.2
-		var qualChange = 0
-		var stridesMulti = 1
-		if(gsCnt > 0){
-			stridesMulti = 2
-			gsCnt = 0
+		if(a1 > 0 && a2 > 0 && a3 > 0 && a4 > 0){	//if we passed it valid values use them
+			crf = a1
+			cnt = a2
+			cpmax = a3
+			duramax = a4
+		}else{	//otherwise use hardcoded state
+			crf = 300
+			cnt = 300
+			cpmax = 300
+			duramax = 40
 		}
-		if( x > 0.5 ){	//success
-			var temp = stridesMulti*qualMap(innerQuietMap(cnt))
-			qual += temp
-			iqStacks += 1
-			//println("success +"+temp)
-		}else{				//failure
-			//println("failure")
-		}
-		//stateChange(state)
+		myTouch.resetTouch
+		mySynth.resetSynth
+		myStatus.resetState
 	}
-	
-	def advTouch(){
-		var x = scala.util.Random.nextDouble()
-		if(steadyCnt > 0) x = x + 0.2
-		var qualChange = 0
-		var stridesMulti = 1
-		if(gsCnt > 0){
-			stridesMulti = 2
-			gsCnt = 0
-		}
-		if( x > 0.9 ){ //success
-			var temp = stridesMulti*qualMap(innerQuietMap(cnt))
-			qual += temp
-			iqStacks += 1
-			//println("success +"+temp)
-		}else{	//failure
-			//println("failure")
+			
+	def innerQuiet(): Boolean = {
+		if(myStatus.getCp < 18){
+			false
+		}else{
+			myStatus.changeCp(-18)
+			myStatus.nextState(false)
+			true
 		}
 	}
 	
-	
-	
-	def carefulSynth(){
-		prog += progMap(crf)
-		//stateChange(state)
+	def greatStrides(): Boolean = {
+		if(myStatus.getCp < 32){
+			false
+		}else{
+			myStatus.changeCp(-32)
+			myStatus.nextState(false)
+			myStatus.setGsCnt(3)
+			true
+		}
 	}
 	
-	def innerQuietMap(cnt: Double): Double = {
-		//println("iqmap: "+cnt+" -> "+cnt*(1+scala.math.min(iqStacks/5.0,2)))
-		cnt*(1+scala.math.min(iqStacks/5.0,2))
+	def steadyHand(): Boolean = {
+		if(myStatus.getCp < 22){
+			false
+		}else{
+			myStatus.changeCp(-22)
+			myStatus.nextState(false)
+			myStatus.setSteadyCnt(5)
+			true
+		}
 	}
 	
-	def innerQuiet(){
-		cp = cp - 18
-		//stateChange(state)
-		//if(dura+20 <= duramax)
-		dura += 10 //refund dura now, since action always spends it
+	def TotT(): Boolean = {
+		if(myStatus.getState != 1.5){
+			false
+		}else{
+			myStatus.changeCp(20)
+			myStatus.nextState(false)
+			true
+		}
 	}
 	
-	def greatStrides(){
-		cp = cp - 32
-		dura += 10
-		gsCnt = 4
-	}
-	
-	def steadyHand(){
-		cp = cp - 22
-		steadyCnt = 6
-		//stateChange(state)
-		//if(dura+20 <= duramax)
-		dura += 10 //refund dura now, since action always spends it
-	}
-	
-	def TotT(){
-		if(state == 1.5) cp = cp + 20
-		//stateChange(state)
-		//if(dura+20 <= duramax)
-		dura += 10 //refund dura now, since action always spends it
-	}
-	
-	def manipulation(){
-		cp = cp - 88
-		manipCnt = 4
-		//stateChange(state)
-		//if(dura+20 <= duramax)
-		dura += 10 //refund dura now, since action always spends it
+	def manipulation(): Boolean = {
+		if(myStatus.getCp < 88){
+			false
+		}else{
+			myStatus.changeCp(-88)
+			myStatus.nextState(false)
+			myStatus.setManipCnt(3)
+			true
+		}
 	}
 			
 	def action(f: () => Unit){
-		f()
-		if(!(manipCnt > 0 && manipCnt < 4)){
-			dura -= 10 
-		}
-		if(manipCnt > 0)
-			manipCnt -= 1
-		if(steadyCnt > 0)
-			steadyCnt -= 1
-		if(gsCnt > 0)
-			gsCnt -= 1
-		//print("State "+stateName(state)+" -> ")
-		state = stateChange(state)
-		//print(stateName(state))
+		var actionTaken = f()
+		if( actionTaken.isInstanceOf[Boolean] && !(actionTaken.asInstanceOf[Boolean]) ){ //actionTaken will be false if the action fails due to lack of cp, in which case don't advance state information
+			println("Tried to take action while unable")
+		}//state advancement occurs when the action is properly taken
 	}
 	
 	def chainCraft() = {
 		var skip = false
-		if(state == 1.5){	//tott logic
-			if(cp < cpmax && manipCnt == 0 && steadyCnt == 0){
+		if(myStatus.getState == 1.5){	//tott logic
+			if(myStatus.getCp < cpmax && myStatus.getManipCnt == 0 && myStatus.getSteadyCnt == 0){
 				//println(" - TotT")
 				skip = true
 				TotT
-			}else if(cp + 20 < cpmax  && manipCnt == 0){
+			}else if(myStatus.getCp + 20 < cpmax  && myStatus.getManipCnt == 0){
 				//println(" - TotT")
 				skip = true
 				TotT
-			}else if(cp + 20 < cpmax && dura < 40){
+			}else if(myStatus.getCp + 20 < cpmax && myStatus.getDura < 40){
 				//println(" - TotT")
 				skip = true
 				TotT
 			}
 		}
-		if(state == 4.0){
-			if((dura > 20 || (dura == 20 && manipCnt > 0)) && cp > 47){
+		if(myStatus.getState == 4.0){
+			if((myStatus.getDura > 20 || (myStatus.getDura == 20 && myStatus.getManipCnt > 0)) && myStatus.getCp > 47){
 				//print(" - Adv: ")
 				skip = true
-				advTouch
+				myTouch.advTouch
 			}
 		}
 		
 		if(skip == false){
-			if(dura == 20 && manipCnt < 1 && cp > 87){
+			if(myStatus.getDura == 20 && myStatus.getManipCnt < 1 && myStatus.getCp > 87){
 				//println(" - Manip")
 				manipulation
-			}else if(cp > 21 && steadyCnt < 1 && (dura < 40 || manipCnt == 0)){
-				//println(" - Hand")
+			}else if(myStatus.getCp > 21 && myStatus.getSteadyCnt < 1 && (myStatus.getDura < 40 || myStatus.getManipCnt == 0)){
+				//println(" - Steady")
 				steadyHand
-			}else if(dura > 20 || (dura == 20 && manipCnt > 0) || (dura == 20 && cp + 20 < 88)){
+			}else if(myStatus.getDura > 20 || (myStatus.getDura == 20 && myStatus.getManipCnt > 0) || (myStatus.getDura == 20 && myStatus.getCp + 20 < 88)){
 				//print(" - Hasty: ")
-				hastyTouch
-				//println(cp+" "+steadyCnt+" "+dura+" "+manipCnt)
+				myTouch.hastyTouch
 			}else{
-				//println(" - Final Careful")
-				carefulSynth
+				//println(" - Careful")
+				mySynth.carefulSynth
 			}
 		}
 	}
 	
 	def simpCraft() = {
-		if(progMap(crf) + prog > 50 && dura > 20 || (dura == 20 && manipCnt > 0)){
+		if(mySynth.progMap(crf) + mySynth.getProg > 50 && myStatus.getDura > 20 || (myStatus.getDura == 20 && myStatus.getManipCnt > 0)){
 			//print(" - Hasty: ")
-			hastyTouch
-		}else if(progMap(crf) + prog < 50 && dura > 20 || (dura == 20 && manipCnt > 0)){
+			myTouch.hastyTouch
+		}else if(mySynth.progMap(crf) + mySynth.getProg < 50 && myStatus.getDura > 20 || (myStatus.getDura == 20 && myStatus.getManipCnt > 0)){
 			//println(" - Careful")
-			carefulSynth
-		}else if(cp > 87){
+			mySynth.carefulSynth
+		}else if(myStatus.getCp > 87){
 			//println(" - Manip")
 			manipulation
 		}else{
-			//println(" - final Careful")
-			carefulSynth
+			//println(" - Careful")
+			mySynth.carefulSynth
 		}
 	}
 	
 	def quickHq() = {
-		if(gsCnt < 1 && cp > 31){
+		if(myStatus.getGsCnt < 1 && myStatus.getCp > 31){
+			//println(" - Great")
 			greatStrides
-		}else if(steadyCnt < 1){
+		}else if(myStatus.getSteadyCnt < 1 && myStatus.getCp > 21){
+			//println(" - Steady")
 			steadyHand
-		}else if(dura > 10 && cp > 48){
-			advTouch
-		}else if(dura > 10){
-			hastyTouch
+		}else if(myStatus.getDura > 10 && myStatus.getCp > 47){
+			//print(" - Adv: ")
+			myTouch.advTouch
+		}else if(myStatus.getDura > 10){
+			//print(" - Hasty: ")
+			myTouch.hastyTouch
 		}else{
-			carefulSynth
+			//println(" - Careful")
+			mySynth.carefulSynth
 		}
 	}
 	
@@ -231,56 +169,34 @@ object craft{
 		var avgProg = 0
 		for(i <- 1 to count){
 			reset
-			while(prog < 50 && dura > 0){
-				//print(stateName(state))
-				//print("\t "+dura+" d, "+cp+" cp, "+manipCnt+" m, "+steadyCnt+" s")
-				//no output, just loop through
+			//myStatus.richStateHeader
+			while(mySynth.getProg < 50 && myStatus.getDura > 0){
+				//myStatus.richStateInfo
+				//print("\t"+mySynth.getProg+"\t")
 				action(f)
 			}
-			if(dura <= 0 && prog < 50){
-				//println("Broke it") 
+			//println("")
+			//println("craft complete")
+			//println("")
+			//println("Final qual = "+myTouch.getQual)
+			if(myStatus.getDura <= 0 && mySynth.getProg < 50){
+				//println("Broke it, final prog: "+mySynth.getProg)
 				//don't need to output
 			}else{
-				avgProg += qual // just add up the qual
-				//println("Craft successful: "+qual+"/maxqual") 
+				avgProg += myTouch.getQual // just add up the qual
+				//println("Craft successful: "+mySynth.getProg) 
 			}
 		}
 		avgProg/count
 	}
-	def main(args: Array[String]){
-		//println("Test")
-		//println(qualMap(100.0))
-		
+	def main(args: Array[String]){		
 		println("DOES NOT ACCOUNT FOR LEVEL VARIANCE BETWEEN CRAFTING LEVEL AND RECIPE LEVEL CURRENTLY")
-		/*println("simpCraft")
-		println("Difficulty == 50")
-		reset
-		while(prog < 50 && dura > 0){
-			print(stateName(state))
-			print("\t "+dura+" d, "+cp+" cp, "+manipCnt+" m, "+steadyCnt+" s")
-			action(simpCraft)
+		if(args.size > 3){
+			a1 = args(0).toInt
+			a2 = args(1).toInt
+			a3 = args(2).toInt
+			a4 = args(3).toInt
 		}
-		if(dura <= 0 && prog < 50){
-			println("Broke it")
-		}else{
-			println("Craft successful: "+qual+"/maxqual")
-		}
-		
-		println("chainCraft")
-		println("Difficulty == 50")
-		reset
-		while(prog < 50 && dura > 0){
-			print(stateName(state))
-			//print("\t "+prog/50.0*100+"%, "+dura+" dura, "+cp+" cp ")
-			print("\t "+dura+" d, "+cp+" cp, "+manipCnt+" m, "+steadyCnt+" s")
-			action(chainCraft)
-		}
-		if(dura <= 0 && prog < 50){
-			println("Broke it")
-		}else{
-			println("Craft successful: "+qual+"/maxqual")
-		}*/
-		
 		println("fastAvg - " + avg(quickHq,10000))
 		println("simpAvg - " + avg(simpCraft,10000))
 		println("chainAvg - " + avg(chainCraft,10000))
